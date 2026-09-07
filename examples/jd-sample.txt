@@ -1,0 +1,6 @@
+Senior Full-Stack Engineer
+
+We are looking for an engineer with JavaScript/TypeScript, React, Node.js,
+REST API design, SQL, Docker, Git and cloud deployment experience.
+Candidates should have at least 3 years of software development experience
+and strong cross-functional communication skills.
