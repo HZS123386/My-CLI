@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "resume-cli-demo"
+version = "0.2.0"
+description = "AI resume PDF parsing and JD matching CLI demo"
+requires-python = ">=3.10"
+dependencies = ["pypdf>=4,<7"]
+
+[project.scripts]
+resume-cli = "resume_cli.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["resume_cli*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,29 +1,41 @@
 # resume-cli-demo
 
-一个可运行的 AI 简历解析 CLI Demo：读取本地 PDF，提取文本；通过 OpenAI 兼容 API 提取简历结构化信息；再基于 JD 给出匹配评分。它是面试题所需的演示工具，不应用作自动化招聘决策。
+一个可直接运行的 Python AI 简历解析 CLI Demo：读取本地 PDF，提取文本；调用 OpenAI 兼容 API 提取结构化简历信息；根据岗位描述（JD）输出匹配评分。
+
+这是面试题演示工具，不应作为自动化招聘决策依据。
 
 ## 技术选型
 
-- Node.js 20+、TypeScript、pnpm
-- `pdf-parse`：解析 PDF 中的文本层
-- 原生 `fetch`：调用 OpenAI 兼容的 Chat Completions API
-- Commander：命令行参数与帮助信息
-- Vitest：基础单元测试
+- Python 3.10+
+- `pypdf`：读取 PDF 文本层
+- Python 标准库 `urllib`：调用 OpenAI 兼容 Chat Completions API
+- `argparse`：命令行参数和帮助信息
+- `pytest`：自动化测试
 
-## 安装与配置
+## 安装
 
-```bash
-pnpm install
-pnpm run build
+建议使用虚拟环境：
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements-dev.txt
+python -m pip install -e .
 ```
 
-真实 AI 模式需复制环境变量模板并填入 Key：
+也可以只安装运行依赖：
 
-```bash
+```powershell
+python -m pip install -r requirements.txt
+```
+
+## 配置真实 AI
+
+复制 `.env.example` 为 `.env` 并填写配置：
+
+```powershell
 Copy-Item .env.example .env
 ```
-
-`.env` 中的配置：
 
 ```dotenv
 OPENAI_API_KEY=your_api_key
@@ -31,37 +43,48 @@ OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_MODEL=gpt-4o-mini
 ```
 
-`OPENAI_BASE_URL` 应指向实现 Chat Completions 接口的 OpenAI 兼容服务（默认官方 OpenAI `/v1` 地址）。`--mock` 模式不读取也不发送 API Key。
+`OPENAI_BASE_URL` 必须指向兼容 Chat Completions 的服务。`--mock` 模式不需要 API Key，也不会发送简历内容。
 
-如果 pnpm 首次安装提示需要批准 `esbuild` 构建脚本，可执行 `pnpm approve-builds --all`，然后再次执行 `pnpm install`。
+## CLI 用法
 
-## CLI 命令
+安装到虚拟环境后可以使用 `resume-cli`；未安装为命令时可使用 `python -m resume_cli`。以下示例使用后者，跨环境更稳定：
 
-所有成功结果均打印为格式化 JSON；出错时会向标准错误输出带有 `code` 和 `message` 的 JSON。运行 `pnpm run resume-cli -- --help` 可查看帮助。
+```powershell
+# 查看帮助
+python -m resume_cli --help
 
-```bash
-# 1. 从 PDF 提取原始文本
-pnpm run resume-cli -- parse ./resume.pdf
+# 1. 提取 PDF 原始文本
+python -m resume_cli parse .\resume.pdf
 
-# 2. 提取结构化简历信息（真实 AI）
-pnpm run resume-cli -- extract ./resume.pdf
+# 2. 从 PDF 提取结构化简历信息（真实 AI）
+python -m resume_cli extract .\resume.pdf
 
-# 3. 根据 JD 文件评分（真实 AI）
-pnpm run resume-cli -- score ./resume.pdf --jd ./jd.txt
+# 3. 根据 JD 进行匹配评分（真实 AI）
+python -m resume_cli score .\resume.pdf --jd .\jd.txt
 ```
 
 两个已实现的加分项：
 
-```bash
-# --mock：不配置 AI Key 也可完整演示 extract / score
-pnpm run resume-cli -- extract ./resume.pdf --mock
-pnpm run resume-cli -- score ./resume.pdf --jd ./jd.txt --mock
+```powershell
+# --mock：没有 API Key 也可完整演示
+python -m resume_cli extract examples/resume-sample.pdf --mock
+python -m resume_cli score examples/resume-sample.pdf --jd examples/jd-sample.txt --mock
 
-# --output：把与终端相同的 JSON 写入文件；目录不存在时会创建
-pnpm run resume-cli -- extract ./resume.pdf --mock --output ./output/profile.json
+# --output：将相同的 JSON 结果保存到文件，目录不存在时自动创建
+python -m resume_cli extract examples/resume-sample.pdf --mock --output output/profile.json
 ```
 
-`parse` 结果包含 `source`、`pages`、`text`；`extract` 固定返回：
+也可以在执行 `python -m pip install -e .` 后直接运行：
+
+```powershell
+resume-cli parse examples/resume-sample.pdf
+```
+
+## 输出格式
+
+`parse` 返回 `source`、`pages`、`text`。
+
+`extract` 返回：
 
 ```json
 {
@@ -81,33 +104,46 @@ pnpm run resume-cli -- extract ./resume.pdf --mock --output ./output/profile.jso
 }
 ```
 
-`score` 固定返回 `overall_score`、`skill_score`、`experience_score`、`education_score`（均为 0-100），以及 `comment` 和 `interview_questions`。真实 AI 返回会先执行 JSON 解析与字段/分数范围校验，错误会给出可读提示。
+`score` 返回 `overall_score`、`skill_score`、`experience_score`、`education_score`（均为 0-100），以及 `comment` 和 `interview_questions`。AI 返回结果会先经过 JSON 解析和字段/分数范围校验。
 
-## 演示
+成功结果输出到标准输出；错误结果以如下 JSON 输出到标准输出，并以退出码 1 结束：
 
-仓库提供英文样例 JD。先生成一个带文本层的样例 PDF，再一键跑完三条命令：
-
-```bash
-pnpm run generate:example
-pnpm run demo
+```json
+{
+  "error": {
+    "code": "PDF_NOT_FOUND",
+    "message": "找不到 PDF 文件"
+  }
+}
 ```
 
-或单独演示：
+## 演示和测试
 
-```bash
-pnpm run resume-cli -- parse examples/resume-sample.pdf
-pnpm run resume-cli -- extract examples/resume-sample.pdf --mock --output examples/extract-result.json
-pnpm run resume-cli -- score examples/resume-sample.pdf --jd examples/jd-sample.txt --mock
+仓库内置了可直接使用的样例文件：`examples/resume-sample.pdf` 和 `examples/jd-sample.txt`。
+
+```powershell
+python -m resume_cli parse examples/resume-sample.pdf
+python -m resume_cli extract examples/resume-sample.pdf --mock --output examples/extract-result.json
+python -m resume_cli score examples/resume-sample.pdf --jd examples/jd-sample.txt --mock
+pytest
 ```
 
-## 测试
+## 项目结构
 
-```bash
-pnpm run test
+```text
+resume_cli/
+├─ cli.py             命令行入口
+├─ pdf_reader.py      PDF 文本读取和错误处理
+├─ ai_client.py       OpenAI 兼容 API 调用和超时
+├─ mock.py            本地可复现演示模式
+├─ schemas.py         AI JSON 解析与校验
+├─ prompts.py         提示词
+├─ io_utils.py        环境变量、JD 和 JSON 文件处理
+└─ errors.py          统一错误类型
+tests/                回归测试
+examples/             样例 PDF、JD 和输出
 ```
-
-测试覆盖 JSON 代码围栏处理、AI 输出字段/范围校验，以及本地 mock 提取和评分结果。
 
 ## 已实现与限制
 
-已实现 PDF 存在性、文件类型、读取失败、空文本和 JD 缺失/空文件的错误处理；`parse`、`extract`、`score` 均支持 `--help`。AI 请求有 30 秒超时保护，错误统一输出 JSON；PDF 页面分隔标记不会进入最终文本。扫描版或没有文本层的 PDF 会提示先 OCR；当前版本没有内置 OCR。真实模式依赖模型服务正确返回 JSON，若服务不可用可用 `--mock` 完成本地演示。
+已处理 PDF 不存在、路径不是文件、扩展名错误、PDF 解析失败、PDF 无文本、JD 不存在/为空、AI 未配置、AI 超时和无效 JSON 等情况。AI 请求默认 30 秒超时；`--output` 会拒绝覆盖输入 PDF 或 JD。扫描版或没有文本层的 PDF 需要先做 OCR；当前版本不内置 OCR。`--mock` 的分数仅用于演示，不代表真实招聘评估。
